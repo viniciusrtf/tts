@@ -43,6 +43,13 @@ def run_ffmpeg(input_path, output_path, speed_factor):
         os.rename(input_path, output_path)
         return
 
+    # Clamp the speed factor to distortion-proof tempo range [0.8, 1.5]
+    if not 0.8 <= speed_factor <= 1.5:
+        original_speed_factor = speed_factor
+        speed_factor = max(0.8, min(speed_factor, 1.5))
+        print(f"Warning: Speed factor {original_speed_factor:.2f}x is outside the valid tempo range [0.8, 1.5]. "
+              f"Clamping to {speed_factor:.2f}x.")
+
     command = [
         'ffmpeg',
         '-i', input_path,

@@ -7,7 +7,7 @@ from chatterbox.tts import ChatterboxTTS
 
 def parse_transcription(file_path):
     """
-    Parses a transcription file and extracts speaker and dialogue.
+    Parses a transcription file and extracts timestamps, speaker, and dialogue.
     Expected format: [0.0s–2.2s] (SPEAKER_00) Text
     """
     lines = []
@@ -16,11 +16,23 @@ def parse_transcription(file_path):
             line = line.strip()
             if not line:
                 continue
-            match = re.search(r'\(SPEAKER_(\d+)\)\s*(.*)', line)
-            if match:
-                speaker_id = int(match.group(1))
-                text = match.group(2).strip()
-                lines.append({'speaker_id': speaker_id, 'text': text})
+            
+            time_match = re.search(r'\[(\d+\.\d+)s–(\d+\.\d+)s\]', line)
+            if not time_match:
+                continue
+
+            speaker_match = re.search(r'\(SPEAKER_(\d+)\)\s*(.*)', line)
+            if speaker_match:
+                start_time = float(time_match.group(1))
+                end_time = float(time_match.group(2))
+                speaker_id = int(speaker_match.group(1))
+                text = speaker_match.group(2).strip()
+                lines.append({
+                    'start_time': start_time,
+                    'end_time': end_time,
+                    'speaker_id': speaker_id,
+                    'text': text
+                })
     return lines
 
 def run_ffmpeg(input_path, output_path, speed_factor):
@@ -55,7 +67,9 @@ def main():
     parser = argparse.ArgumentParser(description="Generate speech from a transcription file using different speakers with ChatterboxTTS.")
     parser.add_argument('-t', '--transcription', type=str, required=True, help="Path to the transcription file.")
     parser.add_argument('-r', '--references', nargs='+', required=True, help="List of reference audio files for speakers (e.g., speaker0.wav speaker1.wav).")
-    parser.add_argument('-s', '--speed', type=float, default=1.0, help="Speed factor for the output audio (e.g., 1.2 for 20% faster).")
+    speed_group = parser.add_mutually_exclusive_group()
+    speed_group.add_argument('-s', '--speed', type=float, default=1.0, help="Speed factor for the output audio (e.g., 1.2 for 20% faster).")
+    speed_group.add_argument('--match-timestamps', action='store_true', help="Automatically adjust speed to match transcription timestamps.")
     parser.add_argument('--exaggeration', type=float, default=0.6, help="Exaggeration factor for TTS generation.")
     parser.add_argument('--cfg_weight', type=float, default=0.7, help="CFG weight for TTS generation.")
 
@@ -95,8 +109,22 @@ def main():
 
         ta.save(output_filename_temp, wav, model.sr)
 
-        print(f"Applying speed factor of {args.speed}...")
-        run_ffmpeg(output_filename_temp, output_filename_final, args.speed)
+        speed_factor = args.speed
+        if args.match_timestamps:
+            target_duration = line['end_time'] - line['start_time']
+            
+            info = ta.info(output_filename_temp)
+            actual_duration = info.num_frames / info.sample_rate
+            
+            if actual_duration > 0:
+                speed_factor = actual_duration / target_duration
+                print(f"Target duration: {target_duration:.2f}s, Actual duration: {actual_duration:.2f}s, Calculated speed: {speed_factor:.2f}x")
+            else:
+                speed_factor = 1.0
+                print("Warning: Could not determine audio duration. Using default speed of 1.0x")
+
+        print(f"Applying speed factor of {speed_factor:.2f}...")
+        run_ffmpeg(output_filename_temp, output_filename_final, speed_factor)
 
     print("\nDone. All audio files have been generated.")
 

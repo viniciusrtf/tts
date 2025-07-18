@@ -1,6 +1,6 @@
 # tts.py
 
-This script uses the ChatterboxTTS model to generate speech from a transcription file. It supports multiple speakers and can adjust the speed of the generated audio.
+This script uses the ChatterboxTTS model to generate speech from a transcription file. It supports multiple speakers and generates a manifest file that maps the generated audio to the original timestamps.
 
 ## Usage
 
@@ -11,8 +11,6 @@ Before running the script, you need to have the required libraries installed. Yo
 ```bash
 pip install chatterbox-tts torchaudio
 ```
-
-You also need to have `ffmpeg` installed on your system.
 
 ### Running the script
 
@@ -35,14 +33,22 @@ python tts.py -t <transcription_file> -r <reference_audio_1> <reference_audio_2>
 
 *   `-t`, `--transcription`: Path to the transcription file.
 *   `-r`, `--references`: List of reference audio files for speakers (e.g., `speaker0.wav` `speaker1.wav`). The order of the files corresponds to the speaker ID in the transcription file (SPEAKER_00, SPEAKER_01, etc.).
-*   `-s`, `--speed`: (Optional) Speed factor for the output audio (e.g., `1.2` for 20% faster). Defaults to `1.0`.
 *   `--exaggeration`: (Optional) Exaggeration factor for TTS generation. Defaults to `0.6`.
 *   `--cfg_weight`: (Optional) CFG weight for TTS generation. Defaults to `0.7`.
+
+### Output
+
+The script will generate audio files (e.g., `000.wav`, `001.wav`, etc.) in the same directory as the transcription file. It will also create a manifest file named `<transcription_file_base>_manifest.txt` with the following format:
+
+```
+[0.0s–2.2s] (SPEAKER_00) /path/to/000.wav
+[2.5s–5.0s] (SPEAKER_01) /path/to/001.wav
+```
 
 ### Example
 
 ```bash
-python tts.py -t dialogue.txt -r speaker0.wav speaker1.wav -s 1.1
+python tts.py -t dialogue.txt -r speaker0.wav speaker1.wav
 ```
 
-This command will generate audio files in the same directory as the transcription file, one for each line in the file. The audio will be 10% faster than the original.
+This command will generate audio files and a `dialogue_manifest.txt` file in the same directory as `dialogue.txt`.
